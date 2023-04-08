@@ -1,0 +1,400 @@
+---
+title: "STAT0006 ICA 3"
+author: 'Student numbers: 123456789, 123456789, 123456789, 123456789'
+subtitle: Group XXX
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+### Introduction to the data
+
+``` {r, echo=FALSE, include = FALSE}
+#setwd("~/Downloads/Everything you need for ICA 3-20221231")
+# importing data set
+ic <- read.csv('ice_creams.csv')
+
+# identifying and removing NA values
+which(is.na(ic), arr.ind = TRUE)
+ic <- ic[-c(271,249,177),]
+
+# summary of ic
+summary(ic)
+
+```
+```{r load-packages, include=FALSE}
+library(scales)
+```
+
++ **Original Dataset and Adjustment**
+
+The given dataset `icecream.csv` includes data on 314 weekly sales of various ice cream brands in a supermarket chain over the past five years, each linked with data on 10 corresponding variables. It contained 3 sales records with missing values, which were removed, resulting in a modified dataset with 311 records. The number of ice creams sold per week ranges from 0 to 2444, with a mean of 530.4 ice creams.
+
++ **Variables Interpretation**
+
+The variables `brand`, `brand_competitors`, `distance`, `holiday`, `milk`, `promotion`, `store_type`, `temperature`, `wind`, and `year` represent, respectively, the brand of the ice cream being sold; the number of other ice cream brands available in the store during that week; the distance (in miles) to the nearest another supermarket; whether there was a national bank holiday during the week; the national average wholesale price of milk during the week; whether there was a promotion campaign for this brand of ice cream during that week; the size of the store (Small, Medium, or Large); the average weekly store temperature (in °C); the average weekly wind speed at the store (in knots); and the year in which the sales were recorded. 
+
++ **Approach**
+
+The aim of this analysis is to determine the extent to which the 10 factors influence the sales of a particular brand of ice cream. 
+
+Figure 1.1 illustrates the relationship between the number of ice creams sold and the variables `brand` and `store_type`.The first plot indicates that ice cream from BrandA appears to be more popular than the other brands, while BrandB has moderate popularity, and BrandC seems to have the lowest popularity. The second plot shows that as the size of store decreases, the number of ice creams sold also decreases.
+
+```{r F11, echo=FALSE, warning=FALSE, fig.height=4, fig.width=10,  fig.align='center', fig.cap="Figure 1.1: The boxplots show the number of ice cream sold each week in a store plotted against the categorical variables brand and storesize, with orange dots representing the mean number of sales in each category."}
+
+par(mfrow=c(1,2))
+
+boxplot(ic$sales~ic$brand, ylab = "Sales (No. of Ice Creams)", xlab = "Brand" , col = "grey", main = "Sales & Type of Brand",cex.axis = 0.8)
+points(c(mean(ic$sales[ic$brand=="BrandA"]), 
+         mean(ic$sales[ic$brand=="BrandB"]),
+         mean(ic$sales[ic$brand=="BrandC"])),
+       pch=16, cex=1.5, col="orange")
+
+boxplot(ic$sales~ic$store_type, ylab = "Sales (No. of Ice Creams)", xlab = "Size of Store", col = "grey", main = "Sales & Size of store", cex.axis = 0.8)
+points(c(mean(ic$sales[ic$store_type=="Large"]),
+         mean(ic$sales[ic$store_type=="Medium"]),
+         mean(ic$sales[ic$store_type=="Small"])),
+       pch=16, cex=1.5, col="orange")
+
+```
+
+Figure 1.2 illustrates the relationship between the number of ice creams sold and the variables `promotion` and `holiday`. The first plot suggests that the weekly sales of ice cream tend to be higher when there is a promotion campaign for the particular brand, compared to weeks without such campaigns. Additionally, the second plot shows that there is a slight increase in the number of ice creams sold during weeks with national bank holidays, compared to weeks without such holidays.
+
+```{r F12, echo=FALSE, warning=FALSE, fig.width=10, fig.align='center', fig.cap="Figure 1.2: Boxplots of the weekly sales amount against the binary variables promotionand holiday."}
+par(mfrow=c(1,2))
+
+boxplot(ic$sales~ic$promotion, ylab = "Sales (No. of Ice Creams)", xlab = "Y / N Promotion", col = "grey", main = "Sales & Whether there is Promotion", names = c("Without Promotion", "With Promotion"), cex.axis = 0.8)
+points(c(mean(ic$sales[ic$promotion=="N"]),
+         mean(ic$sales[ic$promotion=="Y"])),
+         pch=16, cex=1.5, col = "orange")
+
+boxplot(ic$sales~ic$holiday, ylab = "Sales (No. of Ice Creams)", xlab = "Y / N Bank Holiday" ,col = "grey", main = "Sales & Whether there is Bank Holiday", names = c(" ", " "), cex.axis = 0.8)
+points(c(mean(ic$sales[ic$holiday=="N"]), 
+         mean(ic$sales[ic$holiday=="Y"])),
+         pch=16, cex=1.5, col = "orange")
+axis(1,at = c(1,2), labels = c("Without Bank Holiday", "With Bank Holiday"),cex.axis = 0.8)
+```
+
+Figures 1.3 and 1.4 do not appear to demonstrate a clear linear relationship between the variables `sales` and `year`, or `sales` and `brand_competitors`, respectively. Therefore, it may be necessary to exclude the variables `year` and `brand_competitors` when constructing a normal linear regression model for ice cream sales.
+
+```{r F13, echo=FALSE, warning=FALSE,fig.width=10, fig.align='center', fig.cap="Figure 1.3: Boxplots of the weekly ice cream sales amount with respect to the year the sales were recorded."}
+boxplot(ic$sales~ic$year, ylab = "Sales (No. of Ice Creams)", xlab = "Year", col = "grey", main = "Sales between 2018 and 2022", cex.axis = 0.8)
+points(c(mean(ic$sales[ic$year== 2018]),
+        mean(ic$sales[ic$year== 2019]),
+        mean(ic$sales[ic$year== 2020]),
+        mean(ic$sales[ic$year== 2021]),
+        mean(ic$sales[ic$year== 2022])),
+       pch=16, cex=1.5, col="orange")
+
+```
+
+```{r F14, echo=FALSE, fig.width=10, fig.align='center', fig.cap="Figure 1.4: Boxplots of the number of ice cream sold with respect to number of ice cream brand competitors."}
+boxplot(ic$sales~ic$brand_competitors, ylab = "Sales (No. of Ice Creams)", xlab = "No. of Competitors", col = "grey", main = "Sales & No of Competitors", cex.axis = 0.8)
+points(c(mean(ic$sales[ic$brand_competitors== 3]),
+        mean(ic$sales[ic$brand_competitors== 4]),
+        mean(ic$sales[ic$brand_competitors== 5]),
+        mean(ic$sales[ic$brand_competitors== 6]),
+        mean(ic$sales[ic$brand_competitors== 7]),
+        mean(ic$sales[ic$brand_competitors== 8]),
+        mean(ic$sales[ic$brand_competitors== 9])),
+       pch=16, cex=1.5, col="orange")
+```
+
+The top-left plot in Figure 1.5 reveals a weak, yet positive, linear relationship between sales and distance, while the top-right plot illustrates a clear positive linear relationship between `sales` and `temperature`. The relationships between `sales` and the variables `milk` and `wind` do not exhibit linearity, so it may be advisable to exclude both variables when constructing a linear model.
+
+```{r F15, echo=FALSE, warning=FALSE, fig.width=10, fig.height=10, fig.align='center', fig.cap="Figure 1.5: Scatterplots that visualize the relationship between the ice cream sales and each of the variables distance (top-left), temperature (top-right), milk (bottom-left) and wind (bottom-right)."}
+par(mfrow=c(2,2))
+
+plot(ic$sales~ic$distance, ylab = "Sales (No. of Ice Creams)", xlab = "Distance to the nearest other supermarket (miles)", main = "Sales & Distance", pch = 20, col=alpha("darkblue",0.4))
+
+plot(ic$sales~ic$temperature, ylab = "Sales (No. of Ice Creams)", xlab = "Average Weekly Temperature (°C) ", main = "Sales & Temperature", pch = 20, col=alpha("darkblue",0.4))
+
+plot(ic$sales~ic$milk, ylab = "Sales (No. of Ice Creams)", xlab = "Average Weekly Price of Milk (pence/litre)", main = "Sales & Milk", pch = 20, col=alpha("darkblue",0.4))
+
+plot(ic$sales~ic$wind, ylab = "Sales (No. of Ice Creams)", xlab = "Average Weekly Speed of Wind (knots)", main = "Sales & Wind", pch = 20, col=alpha("darkblue",0.4))
+#m<-lm(sqrt(ic$distance)~ic$sales)
+#print(summary(m))
+```
+
+### Model building
+
+
+
+
++ **Model 1**
+***T-TEST FONT STYLE HERE*** 
+
+Due to unclear linear relationship with `sales`, we decided to omit the covariates `year`, `wind`, `milk` and `brand_competitors`.
+
+
+```{r M1, echo=FALSE}
+#MODEL 2 REMOVED MILK AND WIND AND YEAR, ADDED INTERACTION
+
+model1 <- lm(sales ~ 
+               brand
+              +holiday
+              +promotion
+              +store_type
+              +temperature
+              +distance
+              , data = ic)
+summary(model1)
+
+```
+***T-test for storetype?????***
+The p-value of `store-type` in Model 1 is large. Based on this t-test, we might want to remove the covariate from our model. However, Figure 1.1 suggests that `store_type` has an influence on `sales`, since when the store size increases, the sales of ice cream increases as well. Therefore, we decided to keep `store_type` and look for interactions between store type and other variables. 
+
+
++ **Model 2**
+
+We can see from the plots **Figure 2.1** and **Figure 2.2** that the relationship between `store_type` and `sales` is more complex and might be depending on other factors, such as the distance to the nearest store or the brand of ice cream being sold. We therefore considered to include interaction terms for `store_type*distance`,  `store_type*brand` and `store_type*holiday`, which infer more complex relationships. The resulting Model 2, showing as below, indicates that there is evidence against eliminating `store_type` in the model, and there is insufficient evidence agaisnt removing all other covariates, including the interaction terms.
+
+```{r echo=FALSE}
+
+model2 <- lm(sales~ 
+
+              +holiday
+              +temperature
+              +promotion
+              +distance * store_type
+              +store_type*brand
+              +store_type*holiday
+             , data = ic)
+summary(model2)
+
+
+```
+
+However, the plot of sales against `holiday`, varying by `store_type`, shows that the main difference that `holiday` has on sales across all store types is the extremely high values of sales. This implies the interaction might cause the model to fit strongly in the higher values of sales, reducing the accuracy of the model. This problem does not apply for the other two interaction terms, which can be observed in Figure 4.1 . Therefore, `store_type * distance` and `store_type * brand` are the added interactions. 
+
+
++ **Model 3**
+
+Model 3 removes `store_type * brand`, and the fitted model is as follow:
+
+```{r M3, echo=FALSE}
+
+model3 <- lm(sales~ 
+              temperature
+              +promotion
+              +holiday
+              +distance * store_type
+              +store_type*brand, data = ic)
+summary(model3)
+
+```
+### Model checking for Model 3
+
+It is crucial to verify the assumptions of an ordinary least squares model using diagnostic plots to ensure its validity. These assumptions include: the normality of the error term and the constant variance of the error term. Linearity has already been confirmed, so it is unnecessary to check it again. It is also advisable to examine multicollinearity afterwards.
+
++ *Normality:*
+Regarding the assumption of normality, the QQ plot in Figure 3.2 indicates that the error term is approximately normally distributed, although the tails are slightly heavier than expected under the normality assumption. Consequently, there are no significant issues with respect to the assumption of normality.
+
+```{r M3 Normality Checking Fig3.2, echo=FALSE, fig.cap='Figure 3.2', fig.align='center'}
+#normality of error the term
+model3_stdres<-rstandard(model3)
+qqnorm (model3_stdres, main="", ylab = "Standardised Residuals", xlab = "Quantiles of N(0,1)", pch = 20, col=alpha("darkblue",0.4))
+qqline (model3_stdres)
+```
+
++ *Constant Variance:*
+As for the assumption of constant variance, it is not violated if there is no systematic pattern in the plot of standardised residuals against fitted values. Figure 3.3 reveals a linear pattern in a portion of the range of fitted values on the left side of the plot, particularly where the fitted values of sales are negative. This implies that it may be worthwhile to apply further transformations to see if this problem can be resolved.
+
+```{r M3 Homoscedasticity Checking Fig 3.3, echo=FALSE, fig.cap='Figure 3.3', fig.align='center'}
+#homoscedasticity of the error term
+model3_fitted<-fitted(model3)
+plot(model3_fitted, model3_stdres, xlab="Fitted values", ylab="Standardised Residuals", pch = 20, col=alpha("darkblue",0.4))
+abline(a=0, b=0)
+
+```
+
++ *Multicollinearity:*
+With regard to multicollinearity, it can be assessed by evaluating the variance inflation factors (VIFs) for Model 3. All VIF values are less than 5, indicating that multicollinearity is not a concern. This is further supported by the fact that the estimated coefficients are relatively stable, meaning that they do not change by much when the model is retrained.
+
++ *Potentially omitted important covariates:*
+
+Upon plotting the standardised residual values against the omitted numeric covariates of `wind` and `milk`, no systematic relationship is observed in the Figure 3.4. 
+
+```{r Fit M3, echo=FALSE, include=TRUE, fig.width=10, fig.height=4, fig.cap='Figure 3.4 Model 3 - Left out covariates' ,fig.align='center', fig.align='center'}
+
+par(mfrow=c(1,2))
+
+plot(ic$milk, model3_stdres, xlab="Milk", ylab="Standardised residuals",main="Model 3 Standardised Residuals & Milk",pch = 20, col=alpha("darkblue",0.4))
+abline(a=0, b=0, col = 'red')
+
+plot(ic$wind, model3_stdres, xlab="Wind", ylab="Standardised residuals",main="Model 3 Standardised Residuals & Wind",pch = 20, col=alpha("darkblue",0.4))
+abline(a=0, b=0, col = 'red')
+
+```
+
+This suggests that there is no need to include these variables in the model.
+
+In summary, Model 3 exhibits a strong fit to the observed data, but some predicted values are negative, and there is a linear pattern in the plot of standardised residuals against fitted values, suggesting potential concerns about homoscedasticity.
+
++ **Model 4**
+
+In order to address the issue of homoscedasticity in Model 3, we apply the Box Cox transformation to the dependent variable in an effort to stabilise the variance. The optimal transformation function is determined by identifying the value of lambda that maximises the log-likelihood, as depicted in the Figure 2.3 below. 
+
+```{r BOX COX Fig 2.3,echo=FALSE, fig.height=6, fig.width=6, fig.cap='Figure 2.3: Box Cox Transfermation after Model 3',fig.align='center'}
+library(MASS)
+boxcox(I(sales+0.5) ~ 
+               brand
+              +brand_competitors
+              +distance
+              +holiday
+              +store_type
+              +temperature
+              +distance * store_type
+              +store_type*brand, data = ic)
+```
+
+The optimal value of lambda is approximately 0.5, indicating that the optimal function for transforming the sales variable is the square root function. Note that Box Cox transformation only works on strictly positive values, yet there are several sales = 0 observations that we have in the dataset, so it is essential to add a constant to make them positive, without changing the distribution of original data.
+
+```{r M4, echo=FALSE, include= TRUE}
+model4 <- lm(sqrt(sales)~ 
+              +temperature
+              +promotion
+              +holiday
+              +distance * store_type
+              +store_type*brand, data = ic)
+summary(model4)
+
+```
+
+### Model checking for Model 4
+
+
+
+The R-Squared value is 0.8263 and the Adjusted R-Squared value does not drop by much, at 0.8181, which does not cause overfiting concerns. However, it is worth noting that the level of fit of the model appears to decrease for higher values of sales.
+
+
+Model 4 exhibits normality to a satisfactory extent, despite the fatter tails. The transformation of sales through the application of a square root function did serve to enforce positivity in the Standardised Residuals-Fitted Values plot. However, the linear pattern was preserved, indicating that the issue of homoscedasticity was not fully resolved. 
+
+Evaluating the fit of Model 4 raises concerns. As can be seen in the associated plot, the R-Squared value of Model 4 is larger than that of Model 3 (0.8718 > 0.8263), but the fit of Model 4 appears to be weaker for higher values of sales. On the right side of the plot, a curve is formed by the points, suggesting that the predicted values are larger than the observed values. 
+
+```{r M4 Normality Fig3.5, echo=FALSE, fig.width=10, fig.height=4, include=TRUE,fig.cap='Figure 3.5 Assumption Diagnosis Model 4', fig.align='center'}
+
+par(mfrow=c(1,2))
+
+#normality of error the term
+model4_stdres<-rstandard(model4)
+qqnorm (model4_stdres, main="", ylab = "Standardised Residuals", xlab = "Quantiles of N(0,1)",col=alpha("darkblue",0.4), pch = 20)
+qqline (model4_stdres, col = 'red')
+
+#homoscedasticity of the error term
+model4_fitted<-fitted(model4)
+plot(model4_fitted, model4_stdres, xlab="Fitted values", ylab="Standardised residuals",col=alpha("darkblue",0.4), pch = 20)
+abline(a=0, b=0, col = 'red')
+
+```
+
+### Comparing the fit of Model 3 against other models
+
+Model 3's performance appears to be satisfactory when compared its observed ice cream sales data plot to all other models, depicted in Figure 3.1. 
+
+```{r Model3, echo=FALSE, include=TRUE,fig.width=14, fig.height=10, echo = FALSE, fig.cap='Figure 3.1 Model Fit Diagnosis' ,fig.align='center'}
+
+par(mfrow=c(2,2))
+
+predicted1 <- fitted(model1)
+plot(ic$sales~predicted1, xlab = "Predicted sales", ylab = "Observed sales", xlim = c(0,2500), main = "Model 1", pch=16, asp = 0.6, col=alpha("darkblue",0.4))
+abline(a=0, b=1, col = "red")
+grid(nx = NULL, ny = NULL,
+     lty = 2,      # Grid line type
+     col = "gray", # Grid line color
+     lwd = 1)      # Grid line width
+
+predicted2 <- fitted(model2)
+plot(ic$sales~predicted2, xlab = "Predicted sales", ylab = "Observed sales", xlim = c(0,2500), main = "Model 2", pch=16, asp = 0.6, col=alpha("darkblue",0.4))
+abline(a=0, b=1, col = "red")
+grid(nx = NULL, ny = NULL,
+     lty = 2,      # Grid line type
+     col = "gray", # Grid line color
+     lwd = 1)      # Grid line width
+
+predicted3 <- fitted(model3)
+plot(ic$sales~predicted3, xlab = "Predicted sales", ylab = "Observed sales", xlim = c(0,2500), main = "Model 3", pch=16, asp = 0.6, col=alpha("darkblue",0.4))
+abline(a=0, b=1, col = "red")
+grid(nx = NULL, ny = NULL,
+     lty = 2,      # Grid line type
+     col = "gray", # Grid line color
+     lwd = 1)      # Grid line width
+
+predicted4 <- fitted(model4)
+plot(ic$sales~I(predicted4^2), xlab = "Predicted sales", ylab = "Observed sales", xlim = c(0,2500), main = "Model 4", pch=16, asp = 0.6, col=alpha("darkblue",0.4))
+abline(a=0, b=1, col = "red")
+grid(nx = NULL, ny = NULL,
+     lty = 2,      # Grid line type
+     col = "gray", # Grid line color
+     lwd = 1)      # Grid line width
+
+```
+
+The fit was highly improved from Model 1 to Model 2, supported by the increase in the R-Squared value. There is also a stronger fit in higher vales of sales in Model 2 compared to Model 3, yet that among lower sales values is stronger in Model 3. While Model 4 demonstrates an improved R-Squared value and addresses the negative predicted values issue present in Model 3, it does not fit the data as well as Model 3 given the curved relationship. Thus, Model 3 is the most suitable for the Ice Cream Sales dataset.
+
+### Conclusion
+
+Model 3 suggests that the expected ice cream sale is around 799 units for the reference group. The chosen reference group in our final model (Model 3) is `BrandA`, `N` for no promotion, and the store_type `Large`.
+
+`Promotion`: Running a promotion can have a positive effect on weekly sales, which is expected to be 210.7-unit higher than no promotion, holding all covariates constant.
+
+`Temperature`: People buy ice cream when the weather is hotter, which is at 44 units increase of weekly sales per 1C increase, holding  all covariates constant.
+ 
+`Distance` * `store_type`: Looking at the coefficients of distance:`store_typeMedium` and distance:`store_typeSmall`, the model suggests that when the distance increases (by one unit), the increase in ice cream sales in small stores > medium stores > large stores. 
+
+```{r Fig4.1 Dis*Type, fig.cap='Figure 4.1', echo=FALSE, include=TRUE, fig.align='center'}
+plot(ic$sales~ic$distance, ylab = "Sales (no of ice creams)", xlab = "Distance", main = "Sales & Distance (Interaction with store_type)", pch = 20, col = factor(ic$store_type))
+legend("topleft",legend=unique(factor(ic$store_type)),col = unique(factor(ic$store_type)), pch=20)
+abline(model3$coef[1], model3$coef[5], lwd=3, lty=2, col="black")
+abline((model3$coef[1]+model3$coef[6]), (model3$coef[5]+model3$coef[10]), lwd=3, lty=2, col="red")
+abline((model3$coef[1]+model3$coef[7]), (model3$coef[5]+model3$coef[11]), lwd=3, lty=2, col="green")
+
+```
+
+Figure 4.1 showed that Small and Medium stores tend to have very low sales when the distance to the nearest stores is small. This could be explained by reasons such as people would want to go to larger stores at such a distance so that they can shop more goods/ have more ice cream options. When this distance becomes larger, then people might just adhere to the current store for convenience. 
+Also, the increase in ice cream sales is more sticky in large stores because shoppers have more options within that shop. They will be less willing to travel to nearby stores, thus ice cream sales in large store are less influenced by the distance to the nearest store.
+
+`Brand` * `store_type`:
+```{r Fig4.2 Brand&Type, echo=FALSE, include=TRUE, fig.cap='Figure 4.2', fig.align="center"}
+library(ggplot2)
+df<-data.frame(x=ic$store_type,y=ic$sales, color = factor(ic$brand))
+ggplot(df,aes(x=x,y=y,color=color))+geom_point()+geom_jitter()+labs(x = "Sizes of store", y = "Ice cream Sales") + ggtitle("Sales & Store_type (Interaction with brand)") + theme(plot.title = element_text(hjust = 0.5))
+
+```
+Figure 4.2 showed consumers seem to care less about the brand of ice cream when they are shopping in small stores, the points don’t display a clear separation. However, in larger stores, there is a clearer distinction between the sales of ice cream: Brand A > Brand B > Brand C. This could be explained by shopping tastes or availability problems in smaller stores.
+
+### Discussion of limitations 
+
++ **Data**
+
+Even though the dataset already included the most important factors, some important variables might already have been left out. Some possibilities can be the population density in the area of the store, 
+
++ **Model**
+
+It can be seen from Figure 3.1 that most of the negative predicted values are aligned with the observed sales values at 0. We then go to check on the standardised residual vs fitted value plot, and it’s also these values that form the linear pattern, causing concerns to the homoscedasticity assumptions. 
+
+We investigated the observations in the dataset where sales are 0, and they seem to be reasonable: mostly among small and medium stores, most nearest stores are within 1 miles, there is no promotion etc. There seems to be no system problems with these data, we call these the ‘empty season’, where sales just happen to be 0.
+
+We also investigated the extreme points in the dataset. The model also does not fit as strongly with higher values of sales, particularly the three extreme values at  ‘peak seasons’ where sales are over 2000. These values have high values of sales, and after investigation, we realised that they seem to be valid because they are observed in large stores, and during holiday seasons. Although they might pull the fitted hyperplane towards the higher values, these values only make up less than 1% of the observations, they are therefore not a major concern.
+
+
+**Total word count:** insert your word count here.
+
+```{r boxcox for model 4, include = FALSE}
+# CODE FOR BOX COX TRANSFORMATION FROM JENI. WE COULD USE THIS TO CHECK FOR POTENTIAL TRANSFORMATION ON Y
+
+plot(hatvalues(model3), type="h", ylab="Leverage", xlab="Observation")
+#Mean leverage is p/n = 11/311 = 0.0353
+abline(a=0.0353, b=0, lty=3, col="black")
+#Twice the average leverage:
+abline(a=2*0.0353, b=0, lty=3,col="blue")
+```
+```{r, fig.width=14, fig.height=10, echo = FALSE}
+par(mfrow=c(2,2))
+```
